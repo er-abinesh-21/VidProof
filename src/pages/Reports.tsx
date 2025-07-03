@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Report } from "@/types";
-import Header from "@/components/Header";
-import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Eye, Trash2, Home } from "lucide-react";
+import { Eye, Trash2 } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
 const ReportsPage = () => {
@@ -80,91 +78,77 @@ const ReportsPage = () => {
 
   if (loading || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <p>Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="container mx-auto p-4 md:p-8">
-        <Card>
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>My Reports</CardTitle>
-              <CardDescription>
-                A complete history of all your video analyses.
-              </CardDescription>
-            </div>
-            <div className="flex gap-2 mt-4 sm:mt-0">
-              <Button variant="outline" asChild>
-                <Link to="/">
-                  <Home className="mr-2 h-4 w-4" />
-                  Back to Home
-                </Link>
-              </Button>
-              {reports.length > 0 && (
-                <Button variant="destructive" onClick={handleClearHistory}>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Clear History
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>File Name</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+    <Card>
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <CardTitle>My Reports</CardTitle>
+          <CardDescription>
+            A complete history of all your video analyses.
+          </CardDescription>
+        </div>
+        {reports.length > 0 && (
+          <Button variant="destructive" onClick={handleClearHistory}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Clear History
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>File Name</TableHead>
+              <TableHead>Score</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead className="text-right">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isFetching ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center h-24">
+                  Loading reports...
+                </TableCell>
+              </TableRow>
+            ) : reports.length > 0 ? (
+              reports.map((report) => (
+                <TableRow key={report.id}>
+                  <TableCell className="font-medium">{report.fileName}</TableCell>
+                  <TableCell>{report.score}</TableCell>
+                  <TableCell>
+                    {new Date(report.analyzedAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      asChild
+                    >
+                      <Link to={`/reports/${report.id}`}>
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isFetching ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center h-24">
-                      Loading reports...
-                    </TableCell>
-                  </TableRow>
-                ) : reports.length > 0 ? (
-                  reports.map((report) => (
-                    <TableRow key={report.id}>
-                      <TableCell className="font-medium">{report.fileName}</TableCell>
-                      <TableCell>{report.score}</TableCell>
-                      <TableCell>
-                        {new Date(report.analyzedAt).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          asChild
-                        >
-                          <Link to={`/reports/${report.id}`}>
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center h-24">
-                      You haven't analyzed any videos yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </main>
-      <MadeWithDyad />
-    </div>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center h-24">
+                  You haven't analyzed any videos yet.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 };
 

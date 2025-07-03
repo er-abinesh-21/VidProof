@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Report } from "@/types";
-import Header from "@/components/Header";
 import ReportDisplay from "@/components/ReportDisplay";
-import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { showError } from "@/utils/toast";
@@ -66,31 +64,27 @@ const ReportDetailPage = () => {
 
   if (loading || isFetching || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <p>Loading report...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="container mx-auto p-4 md:p-8 space-y-8">
-        <div className="flex justify-start">
-          <Button variant="outline" asChild>
-            <Link to="/reports">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to All Reports
-            </Link>
-          </Button>
-        </div>
-        {report ? (
-          <ReportDisplay report={report} />
-        ) : (
-          <p>Report not found.</p>
-        )}
-      </main>
-      <MadeWithDyad />
+    <div className="space-y-8">
+      <div className="flex justify-start">
+        <Button variant="outline" asChild>
+          <Link to="/reports">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to All Reports
+          </Link>
+        </Button>
+      </div>
+      {report ? (
+        <ReportDisplay report={report} />
+      ) : (
+        <p>Report not found.</p>
+      )}
     </div>
   );
 };

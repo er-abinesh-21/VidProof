@@ -10,6 +10,7 @@ import ProfilePage from "./pages/Profile";
 import ReportsPage from "./pages/Reports";
 import ReportDetailPage from "./pages/ReportDetail";
 import { AuthProvider } from "./hooks/useAuth";
+import MainLayout from "./components/MainLayout";
 
 const queryClient = new QueryClient();
 
@@ -21,11 +22,15 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/reports/:id" element={<ReportDetailPage />} />
+
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<Index />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/reports/:id" element={<ReportDetailPage />} />
+            </Route>
+
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

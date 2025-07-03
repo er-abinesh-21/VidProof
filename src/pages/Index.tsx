@@ -73,13 +73,13 @@ const Index = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col items-center justify-center w-full h-full">
       <VideoUpload onAnalyze={handleAnalyze} isLoading={isLoading} />
 
       {isLoading && (
-        <div className="space-y-4 text-center">
-          <p>{progressMessage}</p>
-          <Progress value={progress} className="w-full" />
+        <div className="w-full max-w-2xl mt-8 space-y-2">
+          <p className="text-center text-sm text-muted-foreground">{progressMessage}</p>
+          <Progress value={progress} className="w-full [&>div]:bg-purple-400" />
         </div>
       )}
     </div>

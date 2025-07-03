@@ -83,11 +83,11 @@ const VideoUpload = ({ onAnalyze, isLoading }: VideoUploadProps) => {
           className={cn(
             "flex flex-col items-center justify-center w-full h-60 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
             "border-[#4f4c7a] bg-[#23213a]",
-            isDragging ? "border-purple-400 bg-purple-900/20" : "hover:border-purple-400/50 hover:bg-[#2c2a4a]/50"
+            isDragging ? "border-primary bg-primary/20" : "hover:border-primary/50 hover:bg-[#2c2a4a]/50"
           )}
         >
           <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
-            <UploadCloud className="w-12 h-12 mb-4 text-purple-400" />
+            <UploadCloud className="w-12 h-12 mb-4 text-primary" />
             <p className="mb-2 text-md font-semibold text-gray-200">
               Drag and drop your video here
             </p>

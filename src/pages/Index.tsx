@@ -79,7 +79,7 @@ const Index = () => {
       {isLoading && (
         <div className="w-full max-w-2xl mt-8 space-y-2">
           <p className="text-center text-sm text-muted-foreground">{progressMessage}</p>
-          <Progress value={progress} className="w-full [&>div]:bg-purple-400" />
+          <Progress value={progress} className="w-full [&>div]:bg-primary" />
         </div>
       )}
     </div>

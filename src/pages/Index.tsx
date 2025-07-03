@@ -63,18 +63,36 @@ const Index = () => {
   }, [session, loading, navigate]);
 
   useEffect(() => {
-    if (session) {
-      try {
-        const storedHistory = localStorage.getItem(`vidproof_history_${session.user.id}`);
-        if (storedHistory) {
-          setHistory(JSON.parse(storedHistory));
+    const fetchHistory = async () => {
+      if (session) {
+        try {
+          const { data, error } = await supabase
+            .from('reports')
+            .select('id, file_name, score, summary, issues, analyzed_at')
+            .order('analyzed_at', { ascending: false });
+
+          if (error) throw error;
+
+          if (data) {
+            const formattedHistory: Report[] = data.map((report: any) => ({
+              id: report.id,
+              fileName: report.file_name,
+              score: report.score,
+              summary: report.summary,
+              issues: report.issues,
+              analyzedAt: report.analyzed_at,
+            }));
+            setHistory(formattedHistory);
+          }
+        } catch (error) {
+          console.error("Failed to load history from database:", error);
+          setHistory([]);
         }
-      } catch (error) {
-        console.error("Failed to load history from localStorage:", error);
-        setHistory([]);
       }
-    }
-  }, [session]);
+    };
+
+    fetchHistory();
+  }, [session, supabase]);
 
   const handleAnalyze = (file: File) => {
     setIsLoading(true);
@@ -91,25 +109,44 @@ const Index = () => {
       });
     }, 200);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       clearInterval(interval);
       setProgress(100);
       
       const baseReport =
         Math.random() > 0.5 ? mockTamperedReport : mockAuthenticReport;
       
-      const newReport: Report = {
-        ...baseReport,
-        id: `rep_${Date.now()}`,
-        fileName: file.name,
-        analyzedAt: new Date().toISOString(),
-      };
-
-      setReport(newReport);
       if (session) {
-        const updatedHistory = [newReport, ...history];
-        setHistory(updatedHistory);
-        localStorage.setItem(`vidproof_history_${session.user.id}`, JSON.stringify(updatedHistory));
+        try {
+          const { data: savedReport, error } = await supabase
+            .from('reports')
+            .insert({
+              user_id: session.user.id,
+              file_name: file.name,
+              score: baseReport.score,
+              summary: baseReport.summary,
+              issues: baseReport.issues,
+            })
+            .select('id, file_name, score, summary, issues, analyzed_at')
+            .single();
+
+          if (error) throw error;
+
+          if (savedReport) {
+            const newReport: Report = {
+              id: savedReport.id,
+              fileName: savedReport.file_name,
+              score: savedReport.score,
+              summary: savedReport.summary,
+              issues: savedReport.issues,
+              analyzedAt: savedReport.analyzed_at,
+            };
+            setReport(newReport);
+            setHistory(prevHistory => [newReport, ...prevHistory]);
+          }
+        } catch (error) {
+          console.error("Failed to save report:", error);
+        }
       }
 
       setIsLoading(false);
@@ -121,10 +158,23 @@ const Index = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleClearHistory = () => {
-    setHistory([]);
+  const handleClearHistory = async () => {
     if (session) {
-      localStorage.removeItem(`vidproof_history_${session.user.id}`);
+      try {
+        const { error } = await supabase
+          .from('reports')
+          .delete()
+          .eq('user_id', session.user.id);
+        
+        if (error) throw error;
+
+        setHistory([]);
+        if (report && history.find(h => h.id === report.id)) {
+          setReport(null);
+        }
+      } catch (error) {
+        console.error("Failed to clear history:", error);
+      }
     }
   };
 

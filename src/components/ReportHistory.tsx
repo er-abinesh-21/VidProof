@@ -9,6 +9,17 @@ import {
 import { Button } from "./ui/button";
 import { Trash2 } from "lucide-react";
 import ReportHistoryItem from "./ReportHistoryItem";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ReportHistoryProps {
   reports: Report[];
@@ -33,10 +44,29 @@ const ReportHistory = ({
           </CardDescription>
         </div>
         {reports.length > 0 && (
-          <Button variant="outline" size="sm" onClick={onClearHistory}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            Clear History
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Clear History
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete all
+                  of your analysis reports from our servers.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onClearHistory}>
+                  Yes, clear history
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </CardHeader>
       <CardContent>

@@ -21,12 +21,14 @@ interface ReportHistoryProps {
   reports: Report[];
   onSelectReport: (report: Report) => void;
   onClearHistory: () => void;
+  onDeleteReport: (reportId: string) => void;
 }
 
 const ReportHistory = ({
   reports,
   onSelectReport,
   onClearHistory,
+  onDeleteReport,
 }: ReportHistoryProps) => {
   if (reports.length === 0) {
     return null;
@@ -53,7 +55,7 @@ const ReportHistory = ({
               <TableHead>File Name</TableHead>
               <TableHead>Score</TableHead>
               <TableHead>Date</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -64,13 +66,22 @@ const ReportHistory = ({
                 <TableCell>
                   {new Date(report.analyzedAt).toLocaleDateString()}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right space-x-1">
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => onSelectReport(report)}
+                    title="View Report"
                   >
                     <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDeleteReport(report.id)}
+                    title="Delete Report"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </TableCell>
               </TableRow>

@@ -8,9 +8,19 @@ import { Report } from "@/types";
 import { Progress } from "@/components/ui/progress";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { useAuth } from "@/hooks/useAuth";
-import { showError } from "@/utils/toast";
+import { showError, showSuccess } from "@/utils/toast";
 import { analyzeVideoClientSide } from "@/lib/video-analyzer";
 import { UserNav } from "@/components/UserNav";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Index = () => {
   const { session, supabase, loading } = useAuth();
@@ -20,6 +30,12 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [actionToConfirm, setActionToConfirm] = useState<{
+    action: () => void;
+    title: string;
+    description: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!loading && !session) {
@@ -88,9 +104,7 @@ const Index = () => {
           .select('id, file_name, score, summary, issues, analyzed_at')
           .single();
 
-        if (dbError) {
-          throw dbError;
-        }
+        if (dbError) throw dbError;
 
         if (savedReport) {
           const newReport: Report = {
@@ -120,24 +134,49 @@ const Index = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleClearHistory = async () => {
-    if (session) {
-      try {
-        const { error } = await supabase
-          .from('reports')
-          .delete()
-          .eq('user_id', session.user.id);
-        
-        if (error) throw error;
-
-        setHistory([]);
-        if (report && history.find(h => h.id === report.id)) {
-          setReport(null);
+  const handleDeleteReport = (reportId: string) => {
+    setActionToConfirm({
+      title: 'Are you absolutely sure?',
+      description: 'This action cannot be undone. This will permanently delete this report from our servers.',
+      action: async () => {
+        if (!session) return;
+        try {
+          const { error } = await supabase.from('reports').delete().eq('id', reportId);
+          if (error) throw error;
+          setHistory(prev => prev.filter(r => r.id !== reportId));
+          if (report?.id === reportId) setReport(null);
+          showSuccess("Report deleted.");
+        } catch (err) {
+          showError("Failed to delete report.");
         }
-      } catch (error) {
-        console.error("Failed to clear history:", error);
       }
-    }
+    });
+    setIsAlertOpen(true);
+  };
+
+  const handleClearHistory = () => {
+    setActionToConfirm({
+      title: 'Are you sure you want to clear all history?',
+      description: 'This action cannot be undone. This will permanently delete all of your reports.',
+      action: async () => {
+        if (!session) return;
+        try {
+          const { error } = await supabase.from('reports').delete().eq('user_id', session.user.id);
+          if (error) throw error;
+          setHistory([]);
+          setReport(null);
+          showSuccess("History cleared.");
+        } catch (err) {
+          showError("Failed to clear history.");
+        }
+      }
+    });
+    setIsAlertOpen(true);
+  };
+
+  const onConfirm = () => {
+    actionToConfirm?.action();
+    setIsAlertOpen(false);
   };
 
   if (loading || !session) {
@@ -170,9 +209,24 @@ const Index = () => {
           reports={history}
           onSelectReport={handleSelectReport}
           onClearHistory={handleClearHistory}
+          onDeleteReport={handleDeleteReport}
         />
       </main>
       <MadeWithDyad />
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{actionToConfirm?.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {actionToConfirm?.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={onConfirm}>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

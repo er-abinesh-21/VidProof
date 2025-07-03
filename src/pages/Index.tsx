@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { showError } from "@/utils/toast";
+import { analyzeVideoClientSide } from "@/lib/video-analyzer";
 
 const Index = () => {
   const { session, supabase, loading } = useAuth();
@@ -19,6 +20,7 @@ const Index = () => {
   const [history, setHistory] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState('');
 
   useEffect(() => {
     if (!loading && !session) {
@@ -62,32 +64,19 @@ const Index = () => {
     setIsLoading(true);
     setReport(null);
     setProgress(0);
+    setProgressMessage('Starting analysis...');
 
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 95) {
-          clearInterval(interval);
-          return prev;
-        }
-        return prev + 2;
-      });
-    }, 150);
+    const progressCallback = (message: string, value: number) => {
+      setProgressMessage(message);
+      setProgress(value);
+    };
 
     try {
-      // Invoke the edge function
-      const { data: analysisResult, error: functionError } = await supabase.functions.invoke('analyze-video', {
-        body: { fileName: file.name },
-      });
-
-      clearInterval(interval);
-      setProgress(100);
-
-      if (functionError) {
-        throw functionError;
-      }
+      const analysisResult = await analyzeVideoClientSide(file, progressCallback);
+      
+      progressCallback('Saving report...', 100);
       
       if (session) {
-        // Save the result to the database
         const { data: savedReport, error: dbError } = await supabase
           .from('reports')
           .insert({
@@ -120,8 +109,8 @@ const Index = () => {
     } catch (error: any) {
       console.error("Analysis failed:", error);
       showError(`Analysis failed: ${error.message || 'Please try again.'}`);
-      clearInterval(interval);
       setProgress(0);
+      setProgressMessage('');
     } finally {
       setIsLoading(false);
     }
@@ -179,7 +168,7 @@ const Index = () => {
 
         {isLoading && (
           <div className="space-y-4 text-center">
-            <p>Analyzing video... This may take a moment.</p>
+            <p>{progressMessage}</p>
             <Progress value={progress} className="w-full" />
           </div>
         )}

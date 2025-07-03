@@ -22,7 +22,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { showSuccess, showError } from "@/utils/toast";
-import { Link } from "react-router-dom";
+import ProfileFormSkeleton from "@/components/ProfileFormSkeleton";
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, "First name is required").max(50),
@@ -34,7 +34,6 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 const ProfilePage = () => {
   const { session, supabase } = useAuth();
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   const form = useForm<ProfileFormValues>({
@@ -49,6 +48,7 @@ const ProfilePage = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       if (session?.user) {
+        setLoading(true);
         try {
           const { data, error } = await supabase
             .from("profiles")
@@ -59,7 +59,6 @@ const ProfilePage = () => {
           if (error) throw error;
 
           if (data) {
-            setProfile(data);
             form.reset({
               first_name: data.first_name || "",
               last_name: data.last_name || "",
@@ -68,13 +67,18 @@ const ProfilePage = () => {
           }
         } catch (error) {
           console.error("Failed to load profile:", error);
+          showError("Could not load your profile.");
         } finally {
           setLoading(false);
         }
       }
     };
 
-    fetchProfile();
+    if (session?.user) {
+      fetchProfile();
+    } else if (!session) {
+      setLoading(false);
+    }
   }, [session, supabase, form]);
 
   const onSubmit = async (values: ProfileFormValues) => {
@@ -92,17 +96,14 @@ const ProfilePage = () => {
       if (error) throw error;
 
       showSuccess("Profile updated successfully!");
+      form.reset(values); // Resets the dirty state
     } catch (error: any) {
       showError(`Failed to update profile: ${error.message}`);
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <p>Loading profile...</p>
-      </div>
-    );
+    return <ProfileFormSkeleton />;
   }
 
   return (
@@ -123,40 +124,45 @@ const ProfilePage = () => {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input {...field} disabled />
+                    <Input {...field} disabled className="cursor-not-allowed" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="first_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>First Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="last_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Last Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <FormField
+                control={form.control}
+                name="first_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="last_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Doe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <div className="flex justify-end gap-2">
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button
+                type="submit"
+                disabled={form.formState.isSubmitting || !form.formState.isDirty}
+              >
                 {form.formState.isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>

@@ -1,213 +1,168 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { supabase } from "@/integrations/supabase/client";
-import { showSuccess, showError } from "@/utils/toast";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Video } from "lucide-react";
-
-const signInSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(1, { message: "Password is required." }),
-});
-
-const signUpSchema = z.object({
-  firstName: z.string().min(1, { message: "First name is required." }),
-  lastName: z.string().min(1, { message: "Last name is required." }),
-  email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-});
+import { useState, useEffect, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { showSuccess, showError } from '@/utils/toast';
+import './Login.css';
 
 const Login = () => {
   const navigate = useNavigate();
+  const [view, setView] = useState<'signIn' | 'signUp' | 'forgotPassword'>('signIn');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
-  const signInForm = useForm<z.infer<typeof signInSchema>>({
-    resolver: zodResolver(signInSchema),
-    defaultValues: { email: "", password: "" },
-  });
+  useEffect(() => {
+    document.body.classList.add('login-page-body');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        navigate('/');
+      }
+    });
 
-  const signUpForm = useForm<z.infer<typeof signUpSchema>>({
-    resolver: zodResolver(signUpSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", password: "" },
-  });
+    return () => {
+      document.body.classList.remove('login-page-body');
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
 
-  const handleSignIn = async (values: z.infer<typeof signInSchema>) => {
+  const handleLogin = async (e: FormEvent) => {
+    e.preventDefault();
     setLoading(true);
+    setError('');
+    setMessage('');
     try {
-      const { error } = await supabase.auth.signInWithPassword(values);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       showSuccess("Signed in successfully!");
       navigate('/');
     } catch (err: any) {
-      showError(err.error_description || err.message);
+      setError(err.error_description || err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSignUp = async (values: z.infer<typeof signUpSchema>) => {
+  const handleSignUp = async (e: FormEvent) => {
+    e.preventDefault();
     setLoading(true);
+    setError('');
+    setMessage('');
     try {
       const { error } = await supabase.auth.signUp({
-        email: values.email,
-        password: values.password,
+        email,
+        password,
         options: {
           data: {
-            first_name: values.firstName,
-            last_name: values.lastName,
+            first_name: firstName,
+            last_name: lastName,
           },
         },
       });
       if (error) throw error;
-      showSuccess("Confirmation email sent! Please check your inbox.");
-      // Reset form or navigate as needed
+      setMessage('Check your email for the confirmation link!');
+      showSuccess('Confirmation email sent!');
     } catch (err: any) {
-      showError(err.error_description || err.message);
+      setError(err.error_description || err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Tabs defaultValue="sign-in" className="w-full max-w-md">
-        <Card>
-          <CardHeader className="text-center">
-            <div className="flex justify-center items-center gap-2 mb-2">
-              <Video className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold">VidProof</h1>
+  const handleForgotPassword = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/`,
+      });
+      if (error) throw error;
+      setMessage('Check your email for a password reset link.');
+      showSuccess('Password reset email sent!');
+    } catch (err: any) {
+      setError(err.error_description || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderForm = () => {
+    switch (view) {
+      case 'signUp':
+        return (
+          <form onSubmit={handleSignUp} className="login-form">
+            <div className="input-group">
+              <input type="text" placeholder="First Name" className="input-field" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
             </div>
-            <CardTitle>Welcome</CardTitle>
-            <CardDescription>
-              Sign in or create an account to continue
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="sign-in">Sign In</TabsTrigger>
-              <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
-            </TabsList>
-            <TabsContent value="sign-in">
-              <Form {...signInForm}>
-                <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4 mt-4">
-                  <FormField
-                    control={signInForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input placeholder="you@example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={signInForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="••••••••" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Signing In..." : "Sign In"}
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-            <TabsContent value="sign-up">
-              <Form {...signUpForm}>
-                <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={signUpForm.control}
-                      name="firstName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>First Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="John" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={signUpForm.control}
-                      name="lastName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Last Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Doe" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <FormField
-                    control={signUpForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input placeholder="you@example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={signUpForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="••••••••" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Creating Account..." : "Create Account"}
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-          </CardContent>
-        </Card>
-      </Tabs>
+            <div className="input-group">
+              <input type="text" placeholder="Last Name" className="input-field" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+            </div>
+            <div className="input-group">
+              <input type="email" placeholder="Email" className="input-field" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <div className="input-group">
+              <input type="password" placeholder="Password" className="input-field" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </div>
+            <button type="submit" className="login-button" disabled={loading}>
+              {loading ? 'Signing Up...' : 'Sign Up'}
+            </button>
+            <div className="form-links">
+              <a href="#" className="form-link" onClick={() => setView('signIn')}>Already have an account? Sign In</a>
+            </div>
+          </form>
+        );
+      case 'forgotPassword':
+        return (
+          <form onSubmit={handleForgotPassword} className="login-form">
+            <div className="input-group">
+              <input type="email" placeholder="Email" className="input-field" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <button type="submit" className="login-button" disabled={loading}>
+              {loading ? 'Sending...' : 'Send Reset Link'}
+            </button>
+            <div className="form-links">
+              <a href="#" className="form-link" onClick={() => setView('signIn')}>Back to Sign In</a>
+            </div>
+          </form>
+        );
+      default: // 'signIn'
+        return (
+          <form onSubmit={handleLogin} className="login-form">
+            <div className="input-group">
+              <input type="email" placeholder="Email" className="input-field" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <div className="input-group">
+              <input type="password" placeholder="Password" className="input-field" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </div>
+            <button type="submit" className="login-button" disabled={loading}>
+              {loading ? 'Signing In...' : 'Sign In'}
+            </button>
+            <div className="form-links">
+              <a href="#" className="form-link" onClick={() => setView('forgotPassword')}>Forgot password?</a>
+              <a href="#" className="form-link" onClick={() => setView('signUp')}>Sign up</a>
+            </div>
+          </form>
+        );
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <div className="particles"></div>
+      <div className="glass-box">
+        <div className="login-header">
+          <h1>Vid<span className="neon">Proof</span></h1>
+          <p>AI-Powered CCTV Video Authenticity Checker</p>
+        </div>
+        {message && <p className="form-message success">{message}</p>}
+        {error && <p className="form-message error">{error}</p>}
+        {renderForm()}
+      </div>
     </div>
   );
 };

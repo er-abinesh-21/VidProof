@@ -8,10 +8,9 @@ import { Report } from "@/types";
 import { Progress } from "@/components/ui/progress";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
 import { showError } from "@/utils/toast";
 import { analyzeVideoClientSide } from "@/lib/video-analyzer";
+import { UserNav } from "@/components/UserNav";
 
 const Index = () => {
   const { session, supabase, loading } = useAuth();
@@ -141,11 +140,6 @@ const Index = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
-  };
-
   if (loading || !session) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -159,10 +153,7 @@ const Index = () => {
       <Header />
       <main className="container mx-auto p-4 md:p-8 space-y-8">
         <div className="flex justify-end">
-          <Button variant="outline" onClick={handleSignOut}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </Button>
+          <UserNav />
         </div>
         <VideoUpload onAnalyze={handleAnalyze} isLoading={isLoading} />
 

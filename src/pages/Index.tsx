@@ -1,15 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import VideoUpload from "@/components/VideoUpload";
 import ReportDisplay from "@/components/ReportDisplay";
+import ReportHistory from "@/components/ReportHistory";
 import { Report } from "@/types";
 import { Progress } from "@/components/ui/progress";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 
 // Mock data for a tampered video
-const mockTamperedReport: Report = {
-  id: "rep_12345",
-  fileName: "cctv_feed_01.mp4",
+const mockTamperedReport: Omit<Report, "id" | "fileName" | "analyzedAt"> = {
   score: 42,
   summary:
     "The video shows significant signs of tampering. Multiple frame drops were detected, and metadata timestamps do not align with the content. Audio appears to be out of sync in several sections.",
@@ -35,31 +34,39 @@ const mockTamperedReport: Report = {
       severity: "low",
     },
   ],
-  analyzedAt: new Date().toISOString(),
 };
 
 // Mock data for an authentic video
-const mockAuthenticReport: Report = {
-  id: "rep_67890",
-  fileName: "archive_footage_22.avi",
+const mockAuthenticReport: Omit<Report, "id" | "fileName" | "analyzedAt"> = {
   score: 98,
   summary:
     "The video appears to be authentic. Frame analysis is consistent, metadata is intact, and audio is synchronized.",
   issues: [],
-  analyzedAt: new Date().toISOString(),
 };
 
 const Index = () => {
   const [report, setReport] = useState<Report | null>(null);
+  const [history, setHistory] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    try {
+      const storedHistory = localStorage.getItem("vidproof_history");
+      if (storedHistory) {
+        setHistory(JSON.parse(storedHistory));
+      }
+    } catch (error) {
+      console.error("Failed to load history from localStorage:", error);
+      setHistory([]);
+    }
+  }, []);
 
   const handleAnalyze = (file: File) => {
     setIsLoading(true);
     setReport(null);
     setProgress(0);
 
-    // Simulate analysis progress
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 95) {
@@ -70,17 +77,37 @@ const Index = () => {
       });
     }, 200);
 
-    // Simulate network delay and analysis time
     setTimeout(() => {
       clearInterval(interval);
       setProgress(100);
-      // Randomly choose between the two mock reports
-      const randomReport =
+      
+      const baseReport =
         Math.random() > 0.5 ? mockTamperedReport : mockAuthenticReport;
-      randomReport.fileName = file.name; // Use the actual file name
-      setReport(randomReport);
+      
+      const newReport: Report = {
+        ...baseReport,
+        id: `rep_${Date.now()}`,
+        fileName: file.name,
+        analyzedAt: new Date().toISOString(),
+      };
+
+      setReport(newReport);
+      const updatedHistory = [newReport, ...history];
+      setHistory(updatedHistory);
+      localStorage.setItem("vidproof_history", JSON.stringify(updatedHistory));
+
       setIsLoading(false);
     }, 4000);
+  };
+
+  const handleSelectReport = (selectedReport: Report) => {
+    setReport(selectedReport);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleClearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem("vidproof_history");
   };
 
   return (
@@ -97,6 +124,12 @@ const Index = () => {
         )}
 
         {report && !isLoading && <ReportDisplay report={report} />}
+
+        <ReportHistory
+          reports={history}
+          onSelectReport={handleSelectReport}
+          onClearHistory={handleClearHistory}
+        />
       </main>
       <MadeWithDyad />
     </div>

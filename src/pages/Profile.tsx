@@ -25,6 +25,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import Header from "@/components/Header";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Link } from "react-router-dom";
+import ProfileSkeleton from "@/components/ProfileSkeleton";
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, "First name is required").max(50),
@@ -101,8 +102,12 @@ const ProfilePage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Loading profile...</p>
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto p-4 md:p-8">
+          <ProfileSkeleton />
+        </main>
+        <MadeWithDyad />
       </div>
     );
   }

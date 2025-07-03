@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import VideoUpload from "@/components/VideoUpload";
 import ReportDisplay from "@/components/ReportDisplay";
@@ -6,6 +7,9 @@ import ReportHistory from "@/components/ReportHistory";
 import { Report } from "@/types";
 import { Progress } from "@/components/ui/progress";
 import { MadeWithDyad } from "@/components/made-with-dyad";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 
 // Mock data for a tampered video
 const mockTamperedReport: Omit<Report, "id" | "fileName" | "analyzedAt"> = {
@@ -45,22 +49,32 @@ const mockAuthenticReport: Omit<Report, "id" | "fileName" | "analyzedAt"> = {
 };
 
 const Index = () => {
+  const { session, supabase, loading } = useAuth();
+  const navigate = useNavigate();
   const [report, setReport] = useState<Report | null>(null);
   const [history, setHistory] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    try {
-      const storedHistory = localStorage.getItem("vidproof_history");
-      if (storedHistory) {
-        setHistory(JSON.parse(storedHistory));
-      }
-    } catch (error) {
-      console.error("Failed to load history from localStorage:", error);
-      setHistory([]);
+    if (!loading && !session) {
+      navigate('/login');
     }
-  }, []);
+  }, [session, loading, navigate]);
+
+  useEffect(() => {
+    if (session) {
+      try {
+        const storedHistory = localStorage.getItem(`vidproof_history_${session.user.id}`);
+        if (storedHistory) {
+          setHistory(JSON.parse(storedHistory));
+        }
+      } catch (error) {
+        console.error("Failed to load history from localStorage:", error);
+        setHistory([]);
+      }
+    }
+  }, [session]);
 
   const handleAnalyze = (file: File) => {
     setIsLoading(true);
@@ -92,9 +106,11 @@ const Index = () => {
       };
 
       setReport(newReport);
-      const updatedHistory = [newReport, ...history];
-      setHistory(updatedHistory);
-      localStorage.setItem("vidproof_history", JSON.stringify(updatedHistory));
+      if (session) {
+        const updatedHistory = [newReport, ...history];
+        setHistory(updatedHistory);
+        localStorage.setItem(`vidproof_history_${session.user.id}`, JSON.stringify(updatedHistory));
+      }
 
       setIsLoading(false);
     }, 4000);
@@ -107,13 +123,34 @@ const Index = () => {
 
   const handleClearHistory = () => {
     setHistory([]);
-    localStorage.removeItem("vidproof_history");
+    if (session) {
+      localStorage.removeItem(`vidproof_history_${session.user.id}`);
+    }
   };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate('/login');
+  };
+
+  if (loading || !session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto p-4 md:p-8 space-y-8">
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={handleSignOut}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+          </Button>
+        </div>
         <VideoUpload onAnalyze={handleAnalyze} isLoading={isLoading} />
 
         {isLoading && (

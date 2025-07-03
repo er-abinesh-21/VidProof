@@ -11,8 +11,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { showError } from "@/utils/toast";
 import { analyzeVideoClientSide } from "@/lib/video-analyzer";
 import { UserNav } from "@/components/UserNav";
-import DashboardSkeleton from "@/components/DashboardSkeleton";
-import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
   const { session, supabase, loading } = useAuth();
@@ -144,15 +142,8 @@ const Index = () => {
 
   if (loading || !session) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container mx-auto p-4 md:p-8 space-y-8">
-          <div className="flex justify-end">
-            <Skeleton className="h-8 w-8 rounded-full" />
-          </div>
-          <DashboardSkeleton />
-        </main>
-        <MadeWithDyad />
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading...</p>
       </div>
     );
   }

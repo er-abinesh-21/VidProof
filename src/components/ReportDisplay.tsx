@@ -52,14 +52,42 @@ const ReportDisplay = ({ report }: ReportDisplayProps) => {
     if (!reportRef.current) return;
     setIsDownloading(true);
 
-    html2canvas(reportRef.current, { scale: 2 }).then((canvas) => {
+    html2canvas(reportRef.current, { scale: 2, useCORS: true }).then((canvas) => {
       const imgData = canvas.toDataURL("image/png");
+      
+      // Using pt as units, A4 is 595.28 x 841.89
       const pdf = new jsPDF({
         orientation: "portrait",
-        unit: "px",
-        format: [canvas.width, canvas.height]
+        unit: "pt",
+        format: "a4",
       });
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = imgProps.width;
+      const imgHeight = imgProps.height;
+
+      // Calculate aspect ratio
+      const ratio = imgWidth / imgHeight;
+
+      // Set width to fit page with margin, calculate height based on ratio
+      const margin = 40; // 40pt margin
+      let finalWidth = pdfWidth - margin * 2;
+      let finalHeight = finalWidth / ratio;
+
+      // If calculated height is greater than page height, then scale based on height
+      if (finalHeight > pdfHeight - margin * 2) {
+        finalHeight = pdfHeight - margin * 2;
+        finalWidth = finalHeight * ratio;
+      }
+
+      // Calculate position to center the image
+      const x = (pdfWidth - finalWidth) / 2;
+      const y = (pdfHeight - finalHeight) / 2;
+
+      pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
       pdf.save(`VidProof-Report-${report.fileName}.pdf`);
       setIsDownloading(false);
     });

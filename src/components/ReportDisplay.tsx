@@ -39,10 +39,8 @@ const SeverityIcon = ({ severity }: { severity: ReportIssue["severity"] }) => {
 
 const ReportDisplay = ({ report }: ReportDisplayProps) => {
   const scoreColor =
-    report.score > 80
+    report.score === 100
       ? "text-green-500"
-      : report.score > 50
-      ? "text-yellow-500"
       : "text-red-500";
   
   const reportRef = useRef<HTMLDivElement>(null);
@@ -101,7 +99,7 @@ const ReportDisplay = ({ report }: ReportDisplayProps) => {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  {report.score > 80 ? (
+                  {report.score === 100 ? (
                     <ShieldCheck className="h-6 w-6 text-green-500" />
                   ) : (
                     <ShieldAlert className="h-6 w-6 text-red-500" />

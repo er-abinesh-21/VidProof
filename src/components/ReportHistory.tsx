@@ -25,14 +25,12 @@ interface ReportHistoryProps {
   reports: Report[];
   onSelectReport: (report: Report) => void;
   onClearHistory: () => void;
-  onDeleteReport: (reportId: string) => void;
 }
 
 const ReportHistory = ({
   reports,
   onSelectReport,
   onClearHistory,
-  onDeleteReport,
 }: ReportHistoryProps) => {
   return (
     <Card>
@@ -63,10 +61,7 @@ const ReportHistory = ({
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={onClearHistory}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
+                <AlertDialogAction onClick={onClearHistory}>
                   Yes, clear history
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -82,7 +77,6 @@ const ReportHistory = ({
                 key={report.id}
                 report={report}
                 onSelectReport={onSelectReport}
-                onDeleteReport={onDeleteReport}
               />
             ))}
           </div>

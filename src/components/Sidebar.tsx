@@ -16,7 +16,7 @@ export const SidebarContent = () => {
       <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
         <NavLink to="/" className="flex items-center gap-2 font-semibold">
           <Video className="h-6 w-6 text-primary" />
-          <span>VidProof</span>
+          <span>Vid<span className="text-glow">Proof</span></span>
         </NavLink>
       </div>
       <div className="flex-1">

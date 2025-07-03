@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from "@/hooks/useAuth";
-import { Profile } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -56,7 +55,9 @@ const ProfilePage = () => {
             .eq("id", session.user.id)
             .single();
 
-          if (error) throw error;
+          if (error && error.code !== 'PGRST116') { // Ignore "No rows found" error
+            throw error;
+          }
 
           if (data) {
             form.reset({
@@ -87,16 +88,18 @@ const ProfilePage = () => {
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({
+        .upsert({
+          id: session.user.id,
           first_name: values.first_name,
           last_name: values.last_name,
         })
-        .eq("id", session.user.id);
+        .select()
+        .single();
 
       if (error) throw error;
 
       showSuccess("Profile updated successfully!");
-      form.reset(values); // Resets the dirty state
+      form.reset(values);
     } catch (error: any) {
       showError(`Failed to update profile: ${error.message}`);
     }

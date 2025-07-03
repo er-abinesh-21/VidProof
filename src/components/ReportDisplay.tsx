@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Report, ReportIssue } from "@/types";
 import {
   Card,
@@ -18,7 +18,7 @@ import {
 import { AlertTriangle, CheckCircle, ShieldAlert, ShieldCheck, Download, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import autoTable from "jspdf-autotable";
 
 interface ReportDisplayProps {
   report: Report;
@@ -43,57 +43,70 @@ const ReportDisplay = ({ report }: ReportDisplayProps) => {
       ? "text-green-500"
       : "text-red-500";
   
-  const reportRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadPdf = () => {
-    if (!reportRef.current) return;
     setIsDownloading(true);
+    
+    const doc = new jsPDF();
 
-    html2canvas(reportRef.current, { scale: 2, useCORS: true }).then((canvas) => {
-      const imgData = canvas.toDataURL("image/png");
-      
-      // Using pt as units, A4 is 595.28 x 841.89
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "pt",
-        format: "a4",
+    // Title
+    doc.setFontSize(22);
+    doc.text("VidProof Authenticity Report", 14, 22);
+
+    // Sub-header
+    doc.setFontSize(12);
+    doc.text(`File: ${report.fileName}`, 14, 32);
+    doc.text(`Analyzed: ${new Date(report.analyzedAt).toLocaleString()}`, 14, 38);
+
+    // Score
+    doc.setFontSize(16);
+    doc.text("Authenticity Score:", 14, 50);
+    doc.setFontSize(28);
+    const scorePdfColor = report.score === 100 ? '#22c55e' : '#ef4444';
+    doc.setTextColor(scorePdfColor);
+    doc.text(`${report.score} / 100`, 14, 60);
+    doc.setTextColor(0); // Reset color to black
+
+    // Summary
+    doc.setFontSize(16);
+    doc.text("Summary", 14, 75);
+    doc.setFontSize(11);
+    const summaryLines = doc.splitTextToSize(report.summary, 180);
+    doc.text(summaryLines, 14, 82);
+
+    // Detailed Findings Table
+    const tableColumn = ["Timestamp", "Description", "Severity"];
+    const tableRows: (string | undefined)[][] = [];
+
+    if (report.issues.length > 0) {
+      report.issues.forEach(issue => {
+          const issueData = [
+              issue.timestamp,
+              issue.description,
+              issue.severity.charAt(0).toUpperCase() + issue.severity.slice(1)
+          ];
+          tableRows.push(issueData);
       });
+    } else {
+        tableRows.push(["N/A", "No issues found. The video appears to be authentic.", "Low"]);
+    }
 
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      const imgWidth = imgProps.width;
-      const imgHeight = imgProps.height;
-
-      // Calculate aspect ratio
-      const ratio = imgWidth / imgHeight;
-
-      // Set width to fit page with margin, calculate height based on ratio
-      const margin = 40; // 40pt margin
-      let finalWidth = pdfWidth - margin * 2;
-      let finalHeight = finalWidth / ratio;
-
-      // If calculated height is greater than page height, then scale based on height
-      if (finalHeight > pdfHeight - margin * 2) {
-        finalHeight = pdfHeight - margin * 2;
-        finalWidth = finalHeight * ratio;
-      }
-
-      // Calculate position to center the image
-      const x = (pdfWidth - finalWidth) / 2;
-      const y = (pdfHeight - finalHeight) / 2;
-
-      pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
-      pdf.save(`VidProof-Report-${report.fileName}.pdf`);
-      setIsDownloading(false);
+    autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: doc.autoTable.previous.finalY ? doc.autoTable.previous.finalY + 15 : 100,
+        theme: 'grid',
+        headStyles: { fillColor: [36, 36, 62] }, // #24243e
     });
+
+    doc.save(`VidProof-Report-${report.fileName}.pdf`);
+    setIsDownloading(false);
   };
 
   return (
     <div className="space-y-6">
-      <div ref={reportRef}>
+      <div>
         <Card>
           <CardHeader>
             <div className="flex justify-between items-start">

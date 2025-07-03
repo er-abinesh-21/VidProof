@@ -16,16 +16,29 @@ import {
 } from "@/components/ui/table";
 import { Button } from "./ui/button";
 import { Eye, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ReportHistoryProps {
   reports: Report[];
   onSelectReport: (report: Report) => void;
+  onDeleteReport: (reportId: string) => void;
   onClearHistory: () => void;
 }
 
 const ReportHistory = ({
   reports,
   onSelectReport,
+  onDeleteReport,
   onClearHistory,
 }: ReportHistoryProps) => {
   if (reports.length === 0) {
@@ -38,13 +51,32 @@ const ReportHistory = ({
         <div>
           <CardTitle>Analysis History</CardTitle>
           <CardDescription>
-            View your previously generated reports.
+            View or delete your previously generated reports.
           </CardDescription>
         </div>
-        <Button variant="outline" size="sm" onClick={onClearHistory}>
-          <Trash2 className="mr-2 h-4 w-4" />
-          Clear History
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Clear History
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete all
+                of your analysis reports.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={onClearHistory}>
+                Continue
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardHeader>
       <CardContent>
         <Table>
@@ -53,7 +85,7 @@ const ReportHistory = ({
               <TableHead>File Name</TableHead>
               <TableHead>Score</TableHead>
               <TableHead>Date</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -64,7 +96,7 @@ const ReportHistory = ({
                 <TableCell>
                   {new Date(report.analyzedAt).toLocaleDateString()}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right space-x-2">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -72,6 +104,27 @@ const ReportHistory = ({
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Report?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete the report for '{report.fileName}'. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDeleteReport(report.id)}>
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </TableCell>
               </TableRow>
             ))}

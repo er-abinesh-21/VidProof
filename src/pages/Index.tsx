@@ -8,7 +8,7 @@ import { Report } from "@/types";
 import { Progress } from "@/components/ui/progress";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { useAuth } from "@/hooks/useAuth";
-import { showError } from "@/utils/toast";
+import { showSuccess, showError } from "@/utils/toast";
 import { analyzeVideoClientSide } from "@/lib/video-analyzer";
 import { UserNav } from "@/components/UserNav";
 
@@ -120,6 +120,27 @@ const Index = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handleDeleteReport = async (reportId: string) => {
+    if (session) {
+      try {
+        const { error } = await supabase
+          .from('reports')
+          .delete()
+          .eq('id', reportId);
+
+        if (error) throw error;
+
+        setHistory(prevHistory => prevHistory.filter(r => r.id !== reportId));
+        if (report?.id === reportId) {
+          setReport(null);
+        }
+        showSuccess("Report deleted successfully.");
+      } catch (error: any) {
+        showError(`Failed to delete report: ${error.message}`);
+      }
+    }
+  };
+
   const handleClearHistory = async () => {
     if (session) {
       try {
@@ -131,11 +152,10 @@ const Index = () => {
         if (error) throw error;
 
         setHistory([]);
-        if (report && history.find(h => h.id === report.id)) {
-          setReport(null);
-        }
-      } catch (error) {
-        console.error("Failed to clear history:", error);
+        setReport(null);
+        showSuccess("Analysis history cleared.");
+      } catch (error: any) {
+        showError(`Failed to clear history: ${error.message}`);
       }
     }
   };
@@ -169,6 +189,7 @@ const Index = () => {
         <ReportHistory
           reports={history}
           onSelectReport={handleSelectReport}
+          onDeleteReport={handleDeleteReport}
           onClearHistory={handleClearHistory}
         />
       </main>

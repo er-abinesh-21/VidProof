@@ -14,9 +14,9 @@ export const SidebarContent = () => {
   return (
     <div className="flex h-full max-h-screen flex-col gap-2">
       <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-        <NavLink to="/" className="flex items-center gap-2 font-semibold">
+        <NavLink to="/" className="flex items-center gap-2 font-semibold text-lg">
           <Video className="h-6 w-6 text-primary" />
-          <span>Vid<span className="text-glow">Proof</span></span>
+          <span className="text-foreground">Vid<span className="text-glow font-bold">Proof</span></span>
         </NavLink>
       </div>
       <div className="flex-1">

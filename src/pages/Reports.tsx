@@ -85,7 +85,7 @@ const ReportsPage = () => {
   }
 
   return (
-    <Card>
+    <Card className="bg-card/50 backdrop-blur-sm border-primary/20 shadow-neon-sm transition-all hover:shadow-neon">
       <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle>My Reports</CardTitle>
@@ -103,7 +103,7 @@ const ReportsPage = () => {
       <CardContent>
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="border-b-primary/20">
               <TableHead>File Name</TableHead>
               <TableHead>Score</TableHead>
               <TableHead>Date</TableHead>
@@ -119,7 +119,7 @@ const ReportsPage = () => {
               </TableRow>
             ) : reports.length > 0 ? (
               reports.map((report) => (
-                <TableRow key={report.id}>
+                <TableRow key={report.id} className="border-b-primary/10 hover:bg-primary/10">
                   <TableCell className="font-medium">{report.fileName}</TableCell>
                   <TableCell>{report.score}</TableCell>
                   <TableCell>

@@ -106,7 +106,7 @@ const ProfilePage = () => {
   }
 
   return (
-    <Card className="max-w-2xl mx-auto">
+    <Card className="max-w-2xl mx-auto bg-card/50 backdrop-blur-sm border-primary/20 shadow-neon-sm transition-all hover:shadow-neon">
       <CardHeader>
         <CardTitle>My Profile</CardTitle>
         <CardDescription>

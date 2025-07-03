@@ -39,7 +39,7 @@ const VideoUpload = ({ onAnalyze, isLoading }: VideoUploadProps) => {
   };
 
   return (
-    <Card>
+    <Card className="bg-card/50 backdrop-blur-sm border-primary/20 shadow-neon-sm transition-all hover:shadow-neon">
       <CardHeader>
         <CardTitle>Upload Video</CardTitle>
         <CardDescription>

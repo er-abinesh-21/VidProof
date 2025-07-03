@@ -39,8 +39,10 @@ const SeverityIcon = ({ severity }: { severity: ReportIssue["severity"] }) => {
 
 const ReportDisplay = ({ report }: ReportDisplayProps) => {
   const scoreColor =
-    report.score === 100
-      ? "text-green-500"
+    report.score >= 80
+      ? "text-green-400"
+      : report.score >= 50
+      ? "text-yellow-400"
       : "text-red-500";
   
   const reportRef = useRef<HTMLDivElement>(null);
@@ -50,41 +52,22 @@ const ReportDisplay = ({ report }: ReportDisplayProps) => {
     if (!reportRef.current) return;
     setIsDownloading(true);
 
-    html2canvas(reportRef.current, { scale: 2, useCORS: true }).then((canvas) => {
+    html2canvas(reportRef.current, { scale: 2, useCORS: true, backgroundColor: '#0a0a0a' }).then((canvas) => {
       const imgData = canvas.toDataURL("image/png");
-      
-      // Using pt as units, A4 is 595.28 x 841.89
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "pt",
-        format: "a4",
-      });
-
-      const imgProps = pdf.getImageProperties(imgData);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      const imgWidth = imgProps.width;
-      const imgHeight = imgProps.height;
-
-      // Calculate aspect ratio
-      const ratio = imgWidth / imgHeight;
-
-      // Set width to fit page with margin, calculate height based on ratio
-      const margin = 40; // 40pt margin
+      const imgProps = pdf.getImageProperties(imgData);
+      const ratio = imgProps.width / imgProps.height;
+      const margin = 40;
       let finalWidth = pdfWidth - margin * 2;
       let finalHeight = finalWidth / ratio;
-
-      // If calculated height is greater than page height, then scale based on height
       if (finalHeight > pdfHeight - margin * 2) {
         finalHeight = pdfHeight - margin * 2;
         finalWidth = finalHeight * ratio;
       }
-
-      // Calculate position to center the image
       const x = (pdfWidth - finalWidth) / 2;
       const y = (pdfHeight - finalHeight) / 2;
-
       pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
       pdf.save(`VidProof-Report-${report.fileName}.pdf`);
       setIsDownloading(false);
@@ -93,14 +76,14 @@ const ReportDisplay = ({ report }: ReportDisplayProps) => {
 
   return (
     <div className="space-y-6">
-      <div ref={reportRef}>
-        <Card>
+      <div ref={reportRef} className="p-4 rounded-lg">
+        <Card className="bg-card/50 backdrop-blur-sm border-primary/20 shadow-neon-sm">
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  {report.score === 100 ? (
-                    <ShieldCheck className="h-6 w-6 text-green-500" />
+                  {report.score >= 80 ? (
+                    <ShieldCheck className="h-6 w-6 text-green-400" />
                   ) : (
                     <ShieldAlert className="h-6 w-6 text-red-500" />
                   )}
@@ -113,12 +96,12 @@ const ReportDisplay = ({ report }: ReportDisplayProps) => {
             </div>
           </CardHeader>
           <CardContent className="grid gap-6 md:grid-cols-3">
-            <div className="flex flex-col items-center justify-center space-y-2 p-4 border rounded-lg bg-muted/50">
+            <div className="flex flex-col items-center justify-center space-y-2 p-6 border border-primary/20 rounded-lg bg-card/50 backdrop-blur-sm animate-pulse-glow">
               <h3 className="text-lg font-medium">Authenticity Score</h3>
               <div className="relative h-32 w-32">
                 <svg className="h-full w-full" viewBox="0 0 36 36">
                   <path
-                    className="text-gray-200 dark:text-gray-700"
+                    className="text-muted/20"
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     fill="none"
                     stroke="currentColor"
@@ -132,6 +115,7 @@ const ReportDisplay = ({ report }: ReportDisplayProps) => {
                     strokeWidth="3"
                     strokeDasharray={`${report.score}, 100`}
                     strokeLinecap="round"
+                    style={{ transition: 'stroke-dasharray 1s ease-out' }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -142,14 +126,14 @@ const ReportDisplay = ({ report }: ReportDisplayProps) => {
               </div>
               <p className="text-sm text-muted-foreground">out of 100</p>
             </div>
-            <div className="md:col-span-2 p-4 border rounded-lg bg-muted/50">
+            <div className="md:col-span-2 p-6 border border-primary/20 rounded-lg bg-card/50 backdrop-blur-sm">
               <h3 className="text-lg font-medium">Summary</h3>
               <p className="text-muted-foreground mt-2">{report.summary}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="mt-6">
+        <Card className="mt-6 bg-card/50 backdrop-blur-sm border-primary/20">
           <CardHeader>
             <CardTitle>Detailed Findings</CardTitle>
             <CardDescription>
@@ -159,7 +143,7 @@ const ReportDisplay = ({ report }: ReportDisplayProps) => {
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="border-b-primary/20">
                   <TableHead>Timestamp</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead className="text-right">Severity</TableHead>
@@ -168,7 +152,7 @@ const ReportDisplay = ({ report }: ReportDisplayProps) => {
               <TableBody>
                 {report.issues.length > 0 ? (
                   report.issues.map((issue, index) => (
-                    <TableRow key={index}>
+                    <TableRow key={index} className="border-b-primary/10 hover:bg-primary/10">
                       <TableCell className="font-mono">{issue.timestamp}</TableCell>
                       <TableCell>{issue.description}</TableCell>
                       <TableCell className="text-right">

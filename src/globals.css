@@ -72,6 +72,9 @@
 
   body {
     @apply bg-background text-foreground;
+    background-color: #0a0a0a;
+    background-image: radial-gradient(circle at top left, hsl(var(--primary) / 0.1), transparent 40%),
+                      radial-gradient(circle at bottom right, hsl(var(--primary) / 0.1), transparent 40%);
   }
 }
 
@@ -79,6 +82,9 @@
 @layer utilities {
   .text-glow {
     color: hsl(var(--primary));
-    text-shadow: 0 0 7px hsl(var(--primary));
+    text-shadow:
+      0 0 5px hsl(var(--primary) / 0.8),
+      0 0 10px hsl(var(--primary) / 0.6),
+      0 0 20px hsl(var(--primary) / 0.4);
   }
 }

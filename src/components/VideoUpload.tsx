@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { UploadCloud } from "lucide-react";
+import { showError } from "@/utils/toast";
 
 interface VideoUploadProps {
   onAnalyze: (file: File) => void;
@@ -25,7 +26,7 @@ const VideoUpload = ({ onAnalyze, isLoading }: VideoUploadProps) => {
       if (file.type === "video/mp4" || file.type === "video/x-msvideo") {
         setSelectedFile(file);
       } else {
-        alert("Please select a valid .mp4 or .avi file.");
+        showError("Please select a valid .mp4 or .avi file.");
         event.target.value = ""; // Reset the input
       }
     }

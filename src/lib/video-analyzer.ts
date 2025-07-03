@@ -68,29 +68,37 @@ export const analyzeVideoClientSide = async (
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
     });
     
-    progressCallback('Preparing video...', 15);
+    progressCallback('Preparing video file...', 15);
     await ffmpeg.writeFile(file.name, await fetchFile(file));
 
-    // Run a quick command to get metadata, including duration
     progressCallback('Analyzing video metadata...', 20);
-    // We run a short command and capture the duration from the log output
-    await ffmpeg.exec(['-i', file.name, '-f', 'null', '-']);
+    try {
+      await ffmpeg.exec(['-i', file.name, '-f', 'null', '-']);
+    } catch (e) {
+      console.error('Error getting metadata:', e);
+      score -= 50;
+      issues.push({
+        timestamp: 'N/A',
+        description: 'Failed to process video metadata. The file may be corrupted.',
+        severity: 'high',
+      });
+    }
 
-    if (duration === 0) {
+    if (duration === 0 && score === 100) {
       score -= 50;
       issues.push({
         timestamp: 'N/A',
         description: 'Could not determine video duration. The file may be corrupted or have missing metadata.',
         severity: 'high',
       });
-    } else if (duration < 3) {
+    } else if (duration > 0 && duration < 3) {
         score -= 10;
         issues.push({
             timestamp: 'N/A',
             description: 'Video is too short for a full frame-comparison analysis.',
             severity: 'low',
         });
-    } else {
+    } else if (duration > 0) {
         issues.push({
             timestamp: '00:00:00',
             description: `Video duration confirmed: ${duration.toFixed(2)} seconds.`,
@@ -98,7 +106,6 @@ export const analyzeVideoClientSide = async (
         });
     }
 
-    // Frame analysis only if video is long enough
     if (duration >= 3) {
       const frameTimestamps = [
         duration * 0.1,
@@ -109,57 +116,70 @@ export const analyzeVideoClientSide = async (
       const framePaths = ['frame1.jpg', 'frame2.jpg', 'frame3.jpg'];
       const frameWidth = 640;
       const frameHeight = 360;
+      const frameData = [];
 
       for (let i = 0; i < frameTimestamps.length; i++) {
         progressCallback(`Extracting frame ${i + 1}/${frameTimestamps.length}...`, 30 + i * 15);
-        await ffmpeg.exec(['-ss', frameTimestamps[i], '-i', file.name, '-vframes', '1', '-s', `${frameWidth}x${frameHeight}`, '-q:v', '2', framePaths[i]]);
-      }
-
-      const frameData = await Promise.all(framePaths.map(p => ffmpeg.readFile(p)));
-      
-      progressCallback('Comparing frames...', 75);
-      const pixelData = await Promise.all(frameData.map(fd => getPixelData(fd as ArrayBuffer, frameWidth, frameHeight)));
-
-      const comparisons = [
-        { from: 0, to: 1, tsFrom: frameTimestamps[0], tsTo: frameTimestamps[1] },
-        { from: 1, to: 2, tsFrom: frameTimestamps[1], tsTo: frameTimestamps[2] },
-      ];
-
-      for (const comp of comparisons) {
-        const mismatchedPixels = pixelmatch(
-          pixelData[comp.from].data,
-          pixelData[comp.to].data,
-          null, // Don't need the diff output image
-          frameWidth,
-          frameHeight,
-          { threshold: 0.1 }
-        );
-
-        const totalPixels = frameWidth * frameHeight;
-        const differencePercentage = (mismatchedPixels / totalPixels) * 100;
-
-        // A higher difference is expected for frames far apart, so thresholds are adjusted
-        if (differencePercentage > 10) {
-          score -= 25;
+        try {
+          await ffmpeg.exec(['-ss', frameTimestamps[i], '-i', file.name, '-vframes', '1', '-s', `${frameWidth}x${frameHeight}`, '-q:v', '2', framePaths[i]]);
+          frameData.push(await ffmpeg.readFile(framePaths[i]));
+        } catch (e) {
+          console.error(`Failed to extract frame ${i+1}:`, e);
+          score -= 20;
           issues.push({
-            timestamp: `${comp.tsFrom}s - ${comp.tsTo}s`,
-            description: `High visual difference (${differencePercentage.toFixed(2)}%) between distant frames, suggesting a major scene change or potential splice.`,
-            severity: 'medium',
-          });
-        } else if (differencePercentage > 2) {
-          score -= 10;
-          issues.push({
-            timestamp: `${comp.tsFrom}s - ${comp.tsTo}s`,
-            description: `Noticeable visual difference (${differencePercentage.toFixed(2)}%) between distant frames.`,
-            severity: 'low',
+            timestamp: `${frameTimestamps[i]}s`,
+            description: `Failed to extract frame ${i + 1}. The video stream may be incomplete.`,
+            severity: 'high',
           });
         }
       }
+
+      if (frameData.length > 1) {
+        progressCallback('Comparing frames...', 75);
+        const pixelData = await Promise.all(frameData.map(fd => getPixelData(fd as ArrayBuffer, frameWidth, frameHeight)));
+
+        const comparisons = [
+          { from: 0, to: 1, tsFrom: frameTimestamps[0], tsTo: frameTimestamps[1] },
+          { from: 1, to: 2, tsFrom: frameTimestamps[1], tsTo: frameTimestamps[2] },
+        ];
+
+        for (const comp of comparisons) {
+          if (!pixelData[comp.from] || !pixelData[comp.to]) continue;
+
+          const mismatchedPixels = pixelmatch(
+            pixelData[comp.from].data,
+            pixelData[comp.to].data,
+            null,
+            frameWidth,
+            frameHeight,
+            { threshold: 0.1 }
+          );
+
+          const totalPixels = frameWidth * frameHeight;
+          const differencePercentage = (mismatchedPixels / totalPixels) * 100;
+
+          if (differencePercentage > 10) {
+            score -= 25;
+            issues.push({
+              timestamp: `${comp.tsFrom}s - ${comp.tsTo}s`,
+              description: `High visual difference (${differencePercentage.toFixed(2)}%) between distant frames, suggesting a major scene change or potential splice.`,
+              severity: 'medium',
+            });
+          } else if (differencePercentage > 2) {
+            score -= 10;
+            issues.push({
+              timestamp: `${comp.tsFrom}s - ${comp.tsTo}s`,
+              description: `Noticeable visual difference (${differencePercentage.toFixed(2)}%) between distant frames.`,
+              severity: 'low',
+            });
+          }
+        }
+      }
       
-      await Promise.all(framePaths.map(p => ffmpeg.deleteFile(p)));
+      await Promise.all(framePaths.map(p => ffmpeg.deleteFile(p).catch(e => console.error(`Failed to delete ${p}`, e))));
     }
 
-    await ffmpeg.deleteFile(file.name);
+    await ffmpeg.deleteFile(file.name).catch(e => console.error(`Failed to delete ${file.name}`, e));
 
     progressCallback('Finalizing report...', 95);
     
@@ -178,7 +198,7 @@ export const analyzeVideoClientSide = async (
 
     return { score, summary, issues };
   } catch (error) {
-    console.error(error);
+    console.error('A critical error occurred during analysis:', error);
     throw new Error('Video analysis failed. The file might be corrupted or in an unsupported format.');
   } finally {
     if (ffmpeg.loaded) {

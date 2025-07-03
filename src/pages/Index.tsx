@@ -10,43 +10,7 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
-
-// Mock data for a tampered video
-const mockTamperedReport: Omit<Report, "id" | "fileName" | "analyzedAt"> = {
-  score: 42,
-  summary:
-    "The video shows significant signs of tampering. Multiple frame drops were detected, and metadata timestamps do not align with the content. Audio appears to be out of sync in several sections.",
-  issues: [
-    {
-      timestamp: "00:01:15",
-      description: "Potential frame splice detected.",
-      severity: "high",
-    },
-    {
-      timestamp: "00:02:30",
-      description: "Metadata timestamp mismatch.",
-      severity: "medium",
-    },
-    {
-      timestamp: "00:02:45",
-      description: "Audio/video desynchronization of 250ms.",
-      severity: "medium",
-    },
-    {
-      timestamp: "00:03:50",
-      description: "Unusual encoding artifact found.",
-      severity: "low",
-    },
-  ],
-};
-
-// Mock data for an authentic video
-const mockAuthenticReport: Omit<Report, "id" | "fileName" | "analyzedAt"> = {
-  score: 98,
-  summary:
-    "The video appears to be authentic. Frame analysis is consistent, metadata is intact, and audio is synchronized.",
-  issues: [],
-};
+import { showError } from "@/utils/toast";
 
 const Index = () => {
   const { session, supabase, loading } = useAuth();
@@ -94,7 +58,7 @@ const Index = () => {
     fetchHistory();
   }, [session, supabase]);
 
-  const handleAnalyze = (file: File) => {
+  const handleAnalyze = async (file: File) => {
     setIsLoading(true);
     setReport(null);
     setProgress(0);
@@ -105,52 +69,62 @@ const Index = () => {
           clearInterval(interval);
           return prev;
         }
-        return prev + 5;
+        return prev + 2;
       });
-    }, 200);
+    }, 150);
 
-    setTimeout(async () => {
+    try {
+      // Invoke the edge function
+      const { data: analysisResult, error: functionError } = await supabase.functions.invoke('analyze-video', {
+        body: { fileName: file.name },
+      });
+
       clearInterval(interval);
       setProgress(100);
-      
-      const baseReport =
-        Math.random() > 0.5 ? mockTamperedReport : mockAuthenticReport;
+
+      if (functionError) {
+        throw functionError;
+      }
       
       if (session) {
-        try {
-          const { data: savedReport, error } = await supabase
-            .from('reports')
-            .insert({
-              user_id: session.user.id,
-              file_name: file.name,
-              score: baseReport.score,
-              summary: baseReport.summary,
-              issues: baseReport.issues,
-            })
-            .select('id, file_name, score, summary, issues, analyzed_at')
-            .single();
+        // Save the result to the database
+        const { data: savedReport, error: dbError } = await supabase
+          .from('reports')
+          .insert({
+            user_id: session.user.id,
+            file_name: file.name,
+            score: analysisResult.score,
+            summary: analysisResult.summary,
+            issues: analysisResult.issues,
+          })
+          .select('id, file_name, score, summary, issues, analyzed_at')
+          .single();
 
-          if (error) throw error;
+        if (dbError) {
+          throw dbError;
+        }
 
-          if (savedReport) {
-            const newReport: Report = {
-              id: savedReport.id,
-              fileName: savedReport.file_name,
-              score: savedReport.score,
-              summary: savedReport.summary,
-              issues: savedReport.issues,
-              analyzedAt: savedReport.analyzed_at,
-            };
-            setReport(newReport);
-            setHistory(prevHistory => [newReport, ...prevHistory]);
-          }
-        } catch (error) {
-          console.error("Failed to save report:", error);
+        if (savedReport) {
+          const newReport: Report = {
+            id: savedReport.id,
+            fileName: savedReport.file_name,
+            score: savedReport.score,
+            summary: savedReport.summary,
+            issues: savedReport.issues,
+            analyzedAt: savedReport.analyzed_at,
+          };
+          setReport(newReport);
+          setHistory(prevHistory => [newReport, ...prevHistory]);
         }
       }
-
+    } catch (error: any) {
+      console.error("Analysis failed:", error);
+      showError(`Analysis failed: ${error.message || 'Please try again.'}`);
+      clearInterval(interval);
+      setProgress(0);
+    } finally {
       setIsLoading(false);
-    }, 4000);
+    }
   };
 
   const handleSelectReport = (selectedReport: Report) => {

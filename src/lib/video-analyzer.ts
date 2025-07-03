@@ -35,6 +35,15 @@ const getPixelData = (
   });
 };
 
+// Function to parse HH:MM:SS.ms format to seconds
+const parseDuration = (durationStr: string): number => {
+  const parts = durationStr.split(':');
+  const hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+  const seconds = parseFloat(parts[2]);
+  return hours * 3600 + minutes * 60 + seconds;
+};
+
 export const analyzeVideoClientSide = async (
   file: File,
   progressCallback: (message: string, value: number) => void
@@ -42,15 +51,13 @@ export const analyzeVideoClientSide = async (
   const ffmpeg = new FFmpeg();
   const issues: ReportIssue[] = [];
   let score = 100;
+  let duration = 0;
 
   ffmpeg.on('log', ({ message }) => {
-    // You can use this to see detailed ffmpeg logs in the console
-    // console.log(message);
-  });
-
-  ffmpeg.on('progress', ({ progress }) => {
-    // This reports progress for a single ffmpeg.exec command
-    progressCallback('Analyzing frames...', 20 + Math.round(progress * 50)); // Scale progress to fit our 20-70% range
+    const durationMatch = message.match(/Duration: ([\d:.]+)/);
+    if (durationMatch && durationMatch[1]) {
+      duration = parseDuration(durationMatch[1]);
+    }
   });
 
   try {
@@ -60,75 +67,113 @@ export const analyzeVideoClientSide = async (
       coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
       wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
     });
-    progressCallback('Engine loaded. Preparing video...', 20);
-
+    
+    progressCallback('Preparing video...', 15);
     await ffmpeg.writeFile(file.name, await fetchFile(file));
 
-    // Extract two frames for comparison (e.g., at 1s and 2s)
-    // Note: This assumes the video is at least 2 seconds long. A real app would need more robust logic.
-    const frame1Path = 'frame1.jpg';
-    const frame2Path = 'frame2.jpg';
-    const frameWidth = 640;
-    const frameHeight = 360;
+    // Run a quick command to get metadata, including duration
+    progressCallback('Analyzing video metadata...', 20);
+    // We run a short command and capture the duration from the log output
+    await ffmpeg.exec(['-i', file.name, '-f', 'null', '-']);
 
-    await ffmpeg.exec(['-i', file.name, '-ss', '00:00:01', '-vframes', '1', '-s', `${frameWidth}x${frameHeight}`, '-q:v', '2', frame1Path]);
-    const frame1Data = await ffmpeg.readFile(frame1Path);
-
-    await ffmpeg.exec(['-i', file.name, '-ss', '00:00:02', '-vframes', '1', '-s', `${frameWidth}x${frameHeight}`, '-q:v', '2', frame2Path]);
-    const frame2Data = await ffmpeg.readFile(frame2Path);
-
-    progressCallback('Comparing frames...', 75);
-    const pixelData1 = await getPixelData(frame1Data as ArrayBuffer, frameWidth, frameHeight);
-    const pixelData2 = await getPixelData(frame2Data as ArrayBuffer, frameWidth, frameHeight);
-
-    const diffCanvas = document.createElement('canvas');
-    diffCanvas.width = frameWidth;
-    diffCanvas.height = frameHeight;
-    const diffCtx = diffCanvas.getContext('2d');
-    if (!diffCtx) throw new Error('Could not get diff canvas context');
-
-    const mismatchedPixels = pixelmatch(
-      pixelData1.data,
-      pixelData2.data,
-      diffCtx.createImageData(frameWidth, frameHeight).data,
-      frameWidth,
-      frameHeight,
-      { threshold: 0.1 }
-    );
-
-    const totalPixels = frameWidth * frameHeight;
-    const differencePercentage = (mismatchedPixels / totalPixels) * 100;
-
-    if (differencePercentage > 5) {
-      score -= 40;
+    if (duration === 0) {
+      score -= 50;
       issues.push({
-        timestamp: '00:00:01-00:00:02',
-        description: `High visual difference (${differencePercentage.toFixed(2)}%) between frames, suggesting a potential cut or splice.`,
+        timestamp: 'N/A',
+        description: 'Could not determine video duration. The file may be corrupted or have missing metadata.',
         severity: 'high',
       });
-    } else if (differencePercentage > 1) {
-      score -= 15;
-      issues.push({
-        timestamp: '00:00:01-00:00:02',
-        description: `Moderate visual difference (${differencePercentage.toFixed(2)}%) between frames detected.`,
-        severity: 'medium',
-      });
+    } else if (duration < 3) {
+        score -= 10;
+        issues.push({
+            timestamp: 'N/A',
+            description: 'Video is too short for a full frame-comparison analysis.',
+            severity: 'low',
+        });
+    } else {
+        issues.push({
+            timestamp: '00:00:00',
+            description: `Video duration confirmed: ${duration.toFixed(2)} seconds.`,
+            severity: 'low',
+        });
     }
 
-    // Clean up files from ffmpeg's virtual memory
+    // Frame analysis only if video is long enough
+    if (duration >= 3) {
+      const frameTimestamps = [
+        duration * 0.1,
+        duration * 0.5,
+        duration * 0.9,
+      ].map(t => t.toFixed(3));
+
+      const framePaths = ['frame1.jpg', 'frame2.jpg', 'frame3.jpg'];
+      const frameWidth = 640;
+      const frameHeight = 360;
+
+      for (let i = 0; i < frameTimestamps.length; i++) {
+        progressCallback(`Extracting frame ${i + 1}/${frameTimestamps.length}...`, 30 + i * 15);
+        await ffmpeg.exec(['-ss', frameTimestamps[i], '-i', file.name, '-vframes', '1', '-s', `${frameWidth}x${frameHeight}`, '-q:v', '2', framePaths[i]]);
+      }
+
+      const frameData = await Promise.all(framePaths.map(p => ffmpeg.readFile(p)));
+      
+      progressCallback('Comparing frames...', 75);
+      const pixelData = await Promise.all(frameData.map(fd => getPixelData(fd as ArrayBuffer, frameWidth, frameHeight)));
+
+      const comparisons = [
+        { from: 0, to: 1, tsFrom: frameTimestamps[0], tsTo: frameTimestamps[1] },
+        { from: 1, to: 2, tsFrom: frameTimestamps[1], tsTo: frameTimestamps[2] },
+      ];
+
+      for (const comp of comparisons) {
+        const mismatchedPixels = pixelmatch(
+          pixelData[comp.from].data,
+          pixelData[comp.to].data,
+          null, // Don't need the diff output image
+          frameWidth,
+          frameHeight,
+          { threshold: 0.1 }
+        );
+
+        const totalPixels = frameWidth * frameHeight;
+        const differencePercentage = (mismatchedPixels / totalPixels) * 100;
+
+        // A higher difference is expected for frames far apart, so thresholds are adjusted
+        if (differencePercentage > 10) {
+          score -= 25;
+          issues.push({
+            timestamp: `${comp.tsFrom}s - ${comp.tsTo}s`,
+            description: `High visual difference (${differencePercentage.toFixed(2)}%) between distant frames, suggesting a major scene change or potential splice.`,
+            severity: 'medium',
+          });
+        } else if (differencePercentage > 2) {
+          score -= 10;
+          issues.push({
+            timestamp: `${comp.tsFrom}s - ${comp.tsTo}s`,
+            description: `Noticeable visual difference (${differencePercentage.toFixed(2)}%) between distant frames.`,
+            severity: 'low',
+          });
+        }
+      }
+      
+      await Promise.all(framePaths.map(p => ffmpeg.deleteFile(p)));
+    }
+
     await ffmpeg.deleteFile(file.name);
-    await ffmpeg.deleteFile(frame1Path);
-    await ffmpeg.deleteFile(frame2Path);
 
     progressCallback('Finalizing report...', 95);
     
+    score = Math.max(0, Math.min(100, score));
+
     let summary = '';
     if (score === 100) {
-      summary = 'The video appears to be authentic. Frame-to-frame analysis is consistent.';
-    } else if (score >= 85) {
-      summary = 'The video appears to be largely authentic. Some minor inconsistencies were found between frames.';
+      summary = 'The video appears to be authentic. Metadata is valid and frame-to-frame analysis is consistent.';
+    } else if (score >= 80) {
+      summary = 'The video appears to be largely authentic. Some minor inconsistencies were found, but no direct evidence of tampering.';
+    } else if (score >= 50) {
+        summary = 'The video shows moderate inconsistencies that could indicate tampering. Manual review is recommended.';
     } else {
-      summary = 'The video shows significant inconsistencies between frames that could indicate tampering. Manual review is highly recommended.';
+      summary = 'The video shows significant inconsistencies that could indicate tampering. Manual review is highly recommended.';
     }
 
     return { score, summary, issues };

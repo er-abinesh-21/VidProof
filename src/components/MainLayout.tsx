@@ -3,7 +3,6 @@ import { Sidebar, SidebarContent } from "@/components/Sidebar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { PanelLeft } from "lucide-react";
-import { MadeWithDyad } from "./made-with-dyad";
 import { UserNav } from "./UserNav";
 
 const MainLayout = () => {
